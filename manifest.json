@@ -8,7 +8,11 @@
       "mat_to_uri" : "file(mat_to_uri.json)"
    },
 
-   "overrides" : {
+   "mixintos" : {
+      "/stonehearth/mixins/base_human/base_human.json" : ["file(mixins/base_human.json)"]
+   },
+
+   "_overrides" : {
       "/stonehearth/components/workshop/craft_order_list.luac" : "file(craft_order_list.lua)"
    }
 }

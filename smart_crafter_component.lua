@@ -1,37 +1,9 @@
---[[--
-   All code present, except those within the comments <SC START> and <SC END>, are made by Team Radiant and the respective copyrights resides with them.
---]]--
+local SmartCrafterComponent = class()
 
-local CraftOrder = require('components.workshop.craft_order')
-local CraftOrderList = class()
-
-function CraftOrderList:initialize(workshop_entity)
-   self._sv.orders = {n = 0,}
-   self._sv.next_order_id = 0
-   self._sv.is_paused = false
-   self._sv.workshop_entity = workshop_entity
-   self.__saved_variables:mark_changed()
+function SmartCrafterComponent:initialize()
 end
 
-function CraftOrderList:is_paused()
-   return self._sv.is_paused
-end
-
-function CraftOrderList:toggle_pause()
-   self._sv.is_paused = not self._sv.is_paused
-   self:_on_order_list_changed()
-end
-
-function CraftOrderList:get_workshop()
-   return self._sv.workshop_entity
-end
-
-function CraftOrderList:add_order(recipe, condition, player_id)
-
-   ------------------------------------------------------------------------
-   --<SC START>
-   ------------------------------------------------------------------------
-
+function SmartCrafterComponent:add_order(recipe, condition, player_id)
    local inv = stonehearth.inventory:get_inventory(player_id)
    local crafters
    -- Go through every ingredient that's needed
@@ -65,24 +37,11 @@ function CraftOrderList:add_order(recipe, condition, player_id)
          end
       end
    end
-
-   ------------------------------------------------------------------------
-   --<SC END>
-   ------------------------------------------------------------------------
-
-   local order = radiant.create_controller('stonehearth:craft_order', self._sv.next_order_id, recipe, condition, player_id, self)
-   self._sv.next_order_id = self._sv.next_order_id + 1
-   table.insert(self._sv.orders, order)
-   self:_on_order_list_changed()
 end
-
-------------------------------------------------------------------------
---<SC START>
-------------------------------------------------------------------------
 
 --! Checks to see if we're missing some ingredients from the inventory, from _needed_.
 --! Also returns the uri for the last found required ingredient.
-function CraftOrderList:_get_uri_and_amount_missing(material, needed, inv)
+function SmartCrafterComponent:_get_uri_and_amount_missing(material, needed, inv)
 
    local material_tags = radiant.util.split_string(material)
    local uri
@@ -143,7 +102,7 @@ end
 
 --! Checks whether or not the ingredient is an item crafted by a craftsman.
 --! If there's a match then return the recipe.
-function CraftOrderList:_get_recipe(ingredient_uri, crafter)
+function SmartCrafterComponent:_get_recipe(ingredient_uri, crafter)
    if crafter and not crafter:get_workshop() then
       return nil
    end
@@ -167,7 +126,7 @@ function CraftOrderList:_get_recipe(ingredient_uri, crafter)
 end
 
 --! Gets a table of all the crafters except for the one that this craft_order_list is connected to.
-function CraftOrderList:_get_other_crafters(pop)
+function SmartCrafterComponent:_get_other_crafters(pop)
    local crafters = {}
    local this_crafter = self:get_workshop():get_component('stonehearth:workshop'):get_crafter():get_component('stonehearth:crafter')
 
@@ -182,7 +141,7 @@ function CraftOrderList:_get_other_crafters(pop)
 end
 
 --! Adds a new order to the list.
-function CraftOrderList:_add_new_order(new_recipe, condition, player_id, ingredient, missing, crafter)
+function SmartCrafterComponent:_add_new_order(new_recipe, condition, player_id, ingredient, missing, crafter)
    local new_condition = {type = condition.type}
    local order_list = (crafter and crafter:get_workshop()._sv.order_list) or self
 
@@ -196,52 +155,4 @@ function CraftOrderList:_add_new_order(new_recipe, condition, player_id, ingredi
    end
 end
 
-------------------------------------------------------------------------
---<SC END>
-------------------------------------------------------------------------
-
-function CraftOrderList:get_next_order()
-   for i,order in ipairs(self._sv.orders) do
-      if order:should_execute_order() then
-         return order
-      end
-   end
-end
-
-function CraftOrderList:change_order_position(new, id)
-   local i = self:find_index_of(id)
-   local order = self._sv.orders[i]
-   table.remove(self._sv.orders, i)
-   table.insert(self._sv.orders, new, order)
-   self:_on_order_list_changed()
-end
-
-function CraftOrderList:remove_order(order)
-   return self:remove_order_id(order:get_id())
-end
-
-function CraftOrderList:remove_order_id(order_id)
-   local i = self:find_index_of(order_id)
-   if i then
-      local order = self._sv.orders[i]
-      table.remove(self._sv.orders, i)
-      radiant.destroy_controller(order)
-      self:_on_order_list_changed()
-   end
-end
-
-function CraftOrderList:find_index_of(order_id)
-   for i,order in ipairs(self._sv.orders) do
-      if order:get_id() == order_id then
-         return i
-      end
-   end
-   return nil
-end
-
-function CraftOrderList:_on_order_list_changed()
-   radiant.events.trigger(self, 'stonehearth:order_list_changed')
-   self.__saved_variables:mark_changed()
-end
-
-return CraftOrderList
+return SmartCrafterComponent

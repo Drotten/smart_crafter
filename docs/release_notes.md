@@ -1,8 +1,3 @@
-### Version 1.0.3.1
-
-- **Bug fix** - Hotfix to make it work for release 240.
-
-
 ### Version 1.0.3
 
 - **Bug fix** - The crafters now makes all the stuff even if you have everything in the inventory.
