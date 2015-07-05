@@ -1,0 +1,14 @@
+{
+   "info" : {
+      "name" : "Smart Crafter",
+      "version" : 1
+   },
+
+   "aliases" : {
+      "mat_to_uri" : "file(mat_to_uri.json)"
+   },
+
+   "overrides" : {
+      "/stonehearth/components/workshop/craft_order_list.luac" : "file(craft_order_list.lua)"
+   }
+}
