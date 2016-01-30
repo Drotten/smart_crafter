@@ -28,7 +28,7 @@ end
 function CrafterInfoController:_format_recipe_list(recipe_list)
    local function format_recipe(recipe)
       -- Format recipe to match show_team_workshop.js:_buildRecipeArray().
-      log:debug('formatting recipe %s', radiant.util.table_tostring(recipe))
+      log:debug('formatting recipe\n%s', radiant.util.table_tostring(recipe))
       local formatted_recipe = radiant.shallow_copy(recipe)
 
       local workshop_uri = recipe.workshop
