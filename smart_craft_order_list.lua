@@ -60,6 +60,20 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
       end
    end
 
+   if condition.type == 'maintain' then
+      -- See if the order_list already contains a maintain order for the recipe:
+      --    if it does, remake the order if its amount is lower than `missing`, otherwise ignore it;
+      --    if it doesn't, simply add it as usual.
+      local order = self:_sc_find_craft_order(recipe.recipe_name)
+      if order and order:get_condition().type == 'maintain' then
+         if order:get_condition().at_least < tonumber(condition.at_least) then
+            self:remove_order(order)
+         else
+            return true
+         end
+      end
+   end
+
    return self:_sc_old_add_order(session, response, recipe, condition)
 end
 
