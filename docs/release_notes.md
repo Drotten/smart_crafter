@@ -1,3 +1,8 @@
+### Version 1.1
+
+- **Bug fix** - Update mod to work for Stonehearth Alpha 14.
+
+
 ### Version 1.0.3.1
 
 - **Bug fix** - Hotfix to make it work for release 240.

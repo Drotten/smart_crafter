@@ -1,14 +1,14 @@
 {
-   "info" : {
-      "name" : "Smart Crafter",
-      "version" : 1
+   "info":
+   {
+      "name"    : "Smart Crafter",
+      "version" : 2
    },
 
-   "aliases" : {
-      "mat_to_uri" : "file(mat_to_uri.json)"
-   },
+   "server_init_script" : "file(smart_crafter_server)",
 
-   "overrides" : {
-      "/stonehearth/components/workshop/craft_order_list.luac" : "file(craft_order_list.lua)"
+   "controllers":
+   {
+      "crafter_info_controller" : "file(services/server/crafter_info/crafter_info_controller.lua)"
    }
 }

@@ -1,5 +1,5 @@
 --[[
--- Tried to make a component that every crafter gets in addition.
+-- Tried to make a component that every(!) crafter gets.
 -- Problems:
 -- * Need to find a way to check whenever an item is getting crafted.
 -- * Has to find a way to make this component be a part of every crafter, even those that are modded into the game.
@@ -28,7 +28,7 @@ return SCComponent
 -- replaced by trying to find with tags from recipes, just keep this just in case...
 
 local Rand = _radiant.csg.get_default_rng()
-local mat_to_uri = radiant.resources.load_json('smart_crafter:mat_to_uri')
+local mat_to_uri = radiant.resources.load_json('file(mat_to_uri.json)')
 
 
 local tracker = inv:get_item_tracker('stonehearth:basic_inventory_tracker')
