@@ -28,9 +28,9 @@ end
 function CrafterInfoController:_format_recipe_list(recipe_list)
    local function format_recipe(recipe)
       -- Format recipe to match show_team_workshop.js:_buildRecipeArray().
-      log:debug('formatting recipe\n%s', radiant.util.table_tostring(recipe))
       local formatted_recipe = radiant.shallow_copy(recipe)
 
+      -- Add information pertaining the workshop.
       local workshop_uri = recipe.workshop
       formatted_recipe.hasWorkshop = workshop_uri ~= nil
       if formatted_recipe.hasWorkshop then
@@ -43,24 +43,40 @@ function CrafterInfoController:_format_recipe_list(recipe_list)
             }
       end
 
-      --TODO: add extra information to each ingredient in the recipe
+      -- Add extra information to each ingredient in the recipe.
       local formatted_ingredients = {}
       for _,ingredient in pairs(recipe.ingredients) do
          local formatted_ingredient = {}
 
          if ingredient.material then
-            formatted_ingredient.kind = 'material'
-            formatted_ingredient.material = ingredient.material
-            formatted_ingredient.identifier = ingredient.material
+            local constants = radiant.resources.load_json('/stonehearth/ui/data/constants.json')
+
+            formatted_ingredient.kind       = 'material'
+            formatted_ingredient.material   = ingredient.material
+            formatted_ingredient.identifier = self:_sort_material(ingredient.material)
+            local resource = constants.formatting.resources[ingredient.material]
+            if resource then
+               formatted_ingredient.name = resource.name
+               formatted_ingredient.icon = resource.icon
+            end
          else
-            formatted_ingredient.kind = 'uri'
-            formatted_ingredient.uri = ingredient.uri
-            formatted_ingredient.identifier = ''
+            local ingredient_data = radiant.resources.load_json(ingredient.uri)
+
+            formatted_ingredient.kind       = 'uri'
+            formatted_ingredient.identifier = ingredient.uri
+
+            if ingredient_data.components then
+               formatted_ingredient.name = ingredient_data.components.unit_info.display_name
+               formatted_ingredient.icon = ingredient_data.components.unit_info.icon
+               formatted_ingredient.uri  = ingredient.uri
+
+               if ingredient_data.components['stonehearth:entity_forms'] and ingredient_data.components['stonehearth:entity_forms'].iconic_form then
+                  formatted_ingredient.identifier = ingredient_data.components['stonehearth:entity_forms'].iconic_form
+               end
+            end
          end
 
          formatted_ingredient.count = ingredient.count
-         formatted_ingredient.name = ''
-         formatted_ingredient.icon = ''
 
          table.insert(formatted_ingredients, formatted_ingredient)
       end
@@ -77,6 +93,13 @@ function CrafterInfoController:_format_recipe_list(recipe_list)
    end
 
    return formatted_recipe_list
+end
+
+function CrafterInfoController:_sort_material(material)
+   local tags = radiant.util.split_string(material, ' ')
+   table.sort(tags)
+
+   return table.concat(tags, ' ')
 end
 
 function CrafterInfoController:get_crafters()
