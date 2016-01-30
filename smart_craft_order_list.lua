@@ -29,7 +29,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
          log:debug('need %d, has %d in inventory which leaves %d missing units to make (if able)', needed, amount, missing)
       else -- condition.type == 'maintain'
          missing = ingredient.count
-         log:debug('wanting to maintain %d, now checking if it can be crafted itself', missing)
+         log:debug('maintaining the recipe requires %d of this ingredient, searching if it can be crafted itself', missing)
       end
 
       if missing > 0 then
@@ -54,6 +54,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
             log:debug('adding the recipe "%s" for a %s to %s %d of those',
                recipe_info.recipe.recipe_name, recipe_info.crafter, new_condition.type, missing)
 
+            -- Add the new order to the appropiate order list
             recipe_info.order_list:add_order(session, response, recipe_info.recipe, new_condition)
          end
       end
