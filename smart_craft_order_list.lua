@@ -5,11 +5,8 @@ local log = radiant.log.create_logger('craft_order_list')
 
 SmartCraftOrderList._sc_old_add_order = CraftOrderList.add_order
 function SmartCraftOrderList:add_order(session, response, recipe, condition)
-   log:debug('adding new recipe\n%s', radiant.util.table_tostring(recipe))
-
    local player_id = session.player_id
    local inv = stonehearth.inventory:get_inventory(player_id)
-   local pop = stonehearth.population:get_population(player_id)
    local crafters
    -- Process the recipe's ingredients to see if the crafter has all she needs for it.
    for _,ingredient in pairs(recipe.ingredients) do
@@ -41,7 +38,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
          --            if it does, proceed to step 3;
          --            if not, continue on to the next ingredient.
 
-         local recipe_info = self:_sc_get_recipe_info_from_item(ingredient.uri or ingredient.material, ingredient.material ~= nil, pop, player_id)
+         local recipe_info = self:_sc_get_recipe_info_from_ingredient(ingredient, player_id)
          if recipe_info then
             log:debug('a "%s" can be made via the recipe "%s"', ingredient.uri or ingredient.material, recipe_info.recipe.recipe_name)
 
@@ -53,7 +50,9 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
             else -- condition.type == 'maintain'
                new_condition.at_least = missing
             end
-            log:debug('adding new recipe "%s" for a %s to %s %d of those', recipe_info.recipe.recipe_name, recipe_info.crafter, new_condition.type, missing)
+
+            log:debug('adding the recipe "%s" for a %s to %s %d of those',
+               recipe_info.recipe.recipe_name, recipe_info.crafter, new_condition.type, missing)
 
             recipe_info.order_list:add_order(session, response, recipe_info.recipe, new_condition)
          end
@@ -77,17 +76,18 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
    return self:_sc_old_add_order(session, response, recipe, condition)
 end
 
-function SmartCraftOrderList:_sc_get_recipe_info_from_item(item, is_material, pop, player_id)
+function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, player_id)
    local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
+   local item = ingredient.uri or ingredient.material
 
    for crafter_uri, crafter in pairs(crafter_info:get_crafters()) do
       for _,recipe in pairs(crafter.recipe_list) do
-         if is_material then
+         if ingredient.material then
             local recipe_material_comp = recipe.product_info.components["stonehearth:material"]
 
             log:detail('Checking on a match between material "%s" and product "%s" with its material tags "%s"',
-               tostring(item),
-               tostring(recipe.product_info.components.unit_info.display_name),
+               item,
+               recipe.product_info.components.unit_info.display_name,
                recipe_material_comp and recipe_material_comp.tags or '-no materials-')
 
             -- Look within the recipe's material tags for a match against `item`
@@ -102,7 +102,7 @@ function SmartCraftOrderList:_sc_get_recipe_info_from_item(item, is_material, po
          else
             for _,product in pairs(recipe.produces) do
 
-               log:detail('Checking on a match between item "%s" and product "%s"', tostring(item), tostring(product.item))
+               log:detail('Checking on a match between item "%s" and product "%s"', item, product.item)
                -- `item` is a uri, so we can simply search for a direct match against their aliases.
                if product.item == item then
                   return
