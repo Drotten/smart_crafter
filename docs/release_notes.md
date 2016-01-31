@@ -1,7 +1,7 @@
 ### Version 1.1
 
 - **Bug fix** - Update mod to work for Stonehearth Alpha 14.
-- **Feature** - When maintaining items: checks if there's already a `maintain` active for the item and updates it if it's lower than what's asked for.
+- **Feature** - Makes sure that any one recipe can't have more than one maintain order.
 
 
 ### Version 1.0.3.1

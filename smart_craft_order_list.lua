@@ -4,7 +4,7 @@ local SmartCraftOrderList = class()
 local log = radiant.log.create_logger('craft_order_list')
 
 SmartCraftOrderList._sc_old_add_order = CraftOrderList.add_order
-function SmartCraftOrderList:add_order(session, response, recipe, condition)
+function SmartCraftOrderList:add_order(session, response, recipe, condition, is_recursive_call)
    local player_id = session.player_id
    local inv = stonehearth.inventory:get_inventory(player_id)
    local crafters
@@ -55,7 +55,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
                recipe_info.recipe.recipe_name, recipe_info.crafter, new_condition.type, missing)
 
             -- Add the new order to the appropiate order list
-            recipe_info.order_list:add_order(session, response, recipe_info.recipe, new_condition)
+            recipe_info.order_list:add_order(session, response, recipe_info.recipe, new_condition, true)
          end
       end
    end
@@ -64,9 +64,15 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition)
       -- See if the order_list already contains a maintain order for the recipe:
       --    if it does, remake the order if its amount is lower than `missing`, otherwise ignore it;
       --    if it doesn't, simply add it as usual.
-      local order = self:_sc_find_craft_order(recipe.recipe_name)
-      if order and order:get_condition().type == 'maintain' then
-         if order:get_condition().at_least < tonumber(condition.at_least) then
+      local order = self:_sc_find_craft_order(recipe.recipe_name, 'maintain')
+      if order then
+         log:debug('checking if maintain order "%s" is to be replaced', order:get_recipe().recipe_name)
+         log:detail('this is %sa recursive call, the order\'s value is %d and the new one is %d',
+            is_recursive_call and 'NOT ' or '',
+            order:get_condition().at_least,
+            condition.at_least)
+
+         if not is_recursive_call or order:get_condition().at_least < tonumber(condition.at_least) then
             self:remove_order(order)
          else
             return true
@@ -128,12 +134,11 @@ function SmartCraftOrderList:_sc_get_ingredient_amount(ingredient, inv)
 
    if ingredient.uri then
       local data = radiant.entities.get_component_data(ingredient.uri , 'stonehearth:entity_forms')
-      local lookup_key
+      local lookup_key = ingredient.uri
       if data and data.iconic_form then
          lookup_key = data.iconic_form
-      else
-         lookup_key = ingredient.uri
       end
+
       local tracking_data_for_key = tracking_data:get(lookup_key)
       if tracking_data_for_key then
          ingredient_count = tracking_data_for_key.count
@@ -160,7 +165,11 @@ function SmartCraftOrderList:_sc_tags_match(tags_string1, tags_string2)
    return true
 end
 
-function SmartCraftOrderList:_sc_find_craft_order(recipe_name)
+-- Gets the craft order which matches `recipe_name`, optionally
+-- also matches it to `order_type`.
+-- Returns nil if none was found.
+--
+function SmartCraftOrderList:_sc_find_craft_order(recipe_name, order_type)
    log:debug('finding a recipe for "%s"', recipe_name)
    log:debug('There are %d orders', radiant.size(self._sv.orders)-1)
 
@@ -168,7 +177,8 @@ function SmartCraftOrderList:_sc_find_craft_order(recipe_name)
       if type(order) ~= 'number' then
          local order_recipe_name = order:get_recipe().recipe_name
          log:debug('evaluating order with recipe "%s"', order_recipe_name)
-         if order_recipe_name == recipe_name then
+
+         if order_recipe_name == recipe_name and (not order_type or order:get_condition().type == order_type) then
             return order
          end
       end
