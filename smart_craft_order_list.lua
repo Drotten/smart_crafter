@@ -60,6 +60,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
       end
    end
 
+   local old_order_index
    if condition.type == 'maintain' then
       -- See if the order_list already contains a maintain order for the recipe:
       --    if it does, remake the order if its amount is lower than `missing`, otherwise ignore it;
@@ -73,14 +74,37 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
             condition.at_least)
 
          if not is_recursive_call or order:get_condition().at_least < tonumber(condition.at_least) then
+            -- The order is to be replaced, so remove the current one so when the new one is added;
+            -- there are no duplicates of the same recipe.
+            old_order_index = self:find_index_of(order:get_id())
             self:remove_order(order)
          else
+            -- There is already a maintain order that fulfills what is asked of, so just return.
             return true
          end
       end
    end
 
-   return self:_sc_old_add_order(session, response, recipe, condition)
+   local res = self:_sc_old_add_order(session, response, recipe, condition)
+
+   if old_order_index then
+      -- Change the order of the recipe to what its predecessor had.
+
+      -- Note: we could call the function `change_order_position` for this one,
+      --       but it uses an order's id to find its index in the table. And since
+      --       we know that the newly created order is in the last index; it seems
+      --       like a waste of resources to just do that sort of operation. So
+      --       we just copy that function's body here with that change in mind.
+
+      local new_order_index = radiant.size(self._sv.orders)-1
+      local order = self._sv.orders[new_order_index]
+      table.remove(self._sv.orders, new_order_index)
+      table.insert(self._sv.orders, old_order_index, order)
+
+      self:_on_order_list_changed()
+   end
+
+   return res
 end
 
 function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, player_id)
