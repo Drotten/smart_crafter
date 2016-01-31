@@ -4,31 +4,46 @@ local SmartCraftOrderList = class()
 local log = radiant.log.create_logger('craft_order_list')
 
 SmartCraftOrderList._sc_old_add_order = CraftOrderList.add_order
+-- In addition to the original add_order function (from craft_order_list.lua),
+-- here it's also checking if the order has enough of the required ingredients and,
+-- if it can be crafted, adds those ingredients as orders as well.
+--
+-- Furthermore, when maintaining orders, it makes sure that there are no more than
+-- one instance of each recipe that's maintained.
+--
 function SmartCraftOrderList:add_order(session, response, recipe, condition, is_recursive_call)
-   local player_id = session.player_id
-   local inv = stonehearth.inventory:get_inventory(player_id)
-   local crafters
+   local inv = stonehearth.inventory:get_inventory(session.player_id)
+   local crafter_info = smart_crafter.crafter_info:get_crafter_info(session.player_id)
+
    -- Process the recipe's ingredients to see if the crafter has all she needs for it.
    for _,ingredient in pairs(recipe.ingredients) do
-      log:debug('processing ingredient "%s"', ingredient.material or ingredient.uri)
+      local ingredient_type = ingredient.uri or ingredient.material
 
-      -- Step 1: `Make`:
+      log:debug('processing ingredient "%s"', ingredient_type)
+
+      -- Step 1: `make`:
       --         See if there are enough of the asked ingredient in the inventory:
       --            if there is, continue to the next ingredient;
       --            if missing, go to step 2.
       --
-      --         `Maintain`:
+      --         `maintain`:
       --         Simply get how much the ingredient asks for and set it as missing,
       --         go to step 2.
 
       local missing
       if condition.type == 'make' then
          local needed = condition.amount * ingredient.count
-         local amount = self:_sc_get_ingredient_amount(ingredient, inv)
-         missing = needed - amount
-         log:debug('need %d, has %d in inventory which leaves %d missing units to make (if able)', needed, amount, missing)
+         local in_storage = self:_sc_get_ingredient_amount_in_storage(ingredient, inv)
+         local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient)
+         missing = math.max(needed - math.max(in_storage + in_order_list.total - crafter_info:get_reserved_ingredients(ingredient_type), 0), 0)
+
+         log:debug('we need %d, have %d in storage, have %d in order list (%d of which are maintained), and %d reserved which means we are missing %d (math is hard, right?)',
+            needed, in_storage, in_order_list.total, in_order_list.maintain, crafter_info:get_reserved_ingredients(ingredient_type), missing)
+
+         crafter_info:add_to_reserved_ingredients(ingredient_type, needed - in_order_list.maintain)
       else -- condition.type == 'maintain'
          missing = ingredient.count
+
          log:debug('maintaining the recipe requires %d of this ingredient, searching if it can be crafted itself', missing)
       end
 
@@ -38,9 +53,9 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
          --            if it does, proceed to step 3;
          --            if not, continue on to the next ingredient.
 
-         local recipe_info = self:_sc_get_recipe_info_from_ingredient(ingredient, player_id)
+         local recipe_info = self:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
          if recipe_info then
-            log:debug('a "%s" can be made via the recipe "%s"', ingredient.uri or ingredient.material, recipe_info.recipe.recipe_name)
+            log:debug('a "%s" can be made via the recipe "%s"', ingredient_type, recipe_info.recipe.recipe_name)
 
             -- Step 3: Recursively check on the ingredient's recipe.
 
@@ -76,6 +91,10 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
          if not is_recursive_call or order:get_condition().at_least < tonumber(condition.at_least) then
             -- The order is to be replaced, so remove the current one so when the new one is added;
             -- there are no duplicates of the same recipe.
+
+            -- Note: It would be preferable to change the order's `at_least` value directly instead, but
+            --       I haven't found a way to accomplish that *and* have the ui update itself instantly.
+
             old_order_index = self:find_index_of(order:get_id())
             self:remove_order(order)
          else
@@ -85,18 +104,18 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
       end
    end
 
-   local res = self:_sc_old_add_order(session, response, recipe, condition)
+   local result = self:_sc_old_add_order(session, response, recipe, condition)
 
    if old_order_index then
       -- Change the order of the recipe to what its predecessor had.
 
-      -- Note: we could call the function `change_order_position` for this one,
+      -- Note: We could call the function `change_order_position` for this one,
       --       but it uses an order's id to find its index in the table. And since
       --       we know that the newly created order is in the last index; it seems
       --       like a waste of resources to just do that sort of operation. So
       --       we just copy that function's body here with that change in mind.
 
-      local new_order_index = radiant.size(self._sv.orders)-1
+      local new_order_index = radiant.size(self._sv.orders) - 1
       local order = self._sv.orders[new_order_index]
       table.remove(self._sv.orders, new_order_index)
       table.insert(self._sv.orders, old_order_index, order)
@@ -104,11 +123,37 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
       self:_on_order_list_changed()
    end
 
-   return res
+   return result
 end
 
-function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, player_id)
-   local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
+SmartCraftOrderList._sc_old_delete_order = CraftOrderList.delete_order
+-- In addition to the original delete_order function (from craft_order_list.lua),
+-- here it's also making sure that the ingredients needed for the order is removed
+-- from the reserved ingredients table.
+--
+function SmartCraftOrderList:delete_order(session, response, order_id)
+   local order = self._sv.orders[ self:find_index_of(order_id) ]
+   local condition = order:get_condition()
+
+   if condition.type == 'make' and condition.remaining > 0 then
+      local crafter_info = smart_crafter.crafter_info:get_crafter_info(session.player_id)
+      for _,ingredient in pairs(order:get_recipe().ingredients) do
+         local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient)
+         local ingredient_type = ingredient.uri or ingredient.material
+         local amount = ingredient.count * condition.remaining - in_order_list.maintain
+
+         crafter_info:remove_from_reserved_ingredients(ingredient_type, amount)
+      end
+   end
+
+   return self:_sc_old_delete_order(session, response, order_id)
+end
+
+-- Used to get a recipe if it can be used to craft `ingredient`.
+-- Information such as what kind of crafter is needed and its order list,
+-- and, of course, the recipe itself.
+--
+function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
    local item = ingredient.uri or ingredient.material
 
    for crafter_uri, crafter in pairs(crafter_info:get_crafters()) do
@@ -151,8 +196,10 @@ function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, pla
    return nil
 end
 
-function SmartCraftOrderList:_sc_get_ingredient_amount(ingredient, inv)
-   local usable_item_tracker = inv:get_item_tracker('stonehearth:usable_item_tracker')
+-- Checks `inventory` to see how much of `ingredient` it contains.
+--
+function SmartCraftOrderList:_sc_get_ingredient_amount_in_storage(ingredient, inventory)
+   local usable_item_tracker = inventory:get_item_tracker('stonehearth:usable_item_tracker')
    local tracking_data = usable_item_tracker:get_tracking_data()
    local ingredient_count = 0
 
@@ -178,6 +225,49 @@ function SmartCraftOrderList:_sc_get_ingredient_amount(ingredient, inv)
    return ingredient_count
 end
 
+-- Checks this order list to see how much of `ingredient` it contains.
+--
+function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient)
+   local ingredient_count =
+      {
+         total    = 0,
+         make     = 0,
+         maintain = 0,
+      }
+
+   for _,order in pairs(self._sv.orders) do
+      if type(order) ~= 'number' then
+         local recipe = order:get_recipe()
+         local condition = order:get_condition()
+
+         if ingredient.material then
+            if recipe.product_info.components
+            and recipe.product_info.components['stonehearth:material']
+            and self:_sc_tags_match(ingredient.material, recipe.product_info.components['stonehearth:material'].tags) then
+               if condition.type == 'make' then
+                  ingredient_count.make = ingredient_count.make + condition.remaining
+               else
+                  ingredient_count.maintain = ingredient_count.maintain + condition.at_least
+               end
+            end
+
+         elseif recipe.produces.item == ingredient.uri then
+            if condition.type == 'make' then
+               ingredient_count.make = ingredient_count.make + condition.remaining
+            else
+               ingredient_count.maintain = ingredient_count.maintain + condition.at_least
+            end
+         end
+      end
+   end
+
+   ingredient_count.total = ingredient_count.make + ingredient_count.maintain
+   return ingredient_count
+end
+
+-- Checks to see if `tags_string1` is a sub-set of `tags_string2`.
+-- Returns a boolean depending on the result.
+--
 function SmartCraftOrderList:_sc_tags_match(tags_string1, tags_string2)
    for tag in tags_string1:gmatch("([^ ]*)") do
       -- gmatch will return either 1 tag or the empty string.
@@ -189,13 +279,13 @@ function SmartCraftOrderList:_sc_tags_match(tags_string1, tags_string2)
    return true
 end
 
--- Gets the craft order which matches `recipe_name`, optionally
--- also matches it to `order_type`.
--- Returns nil if none was found.
+-- Gets the craft order which matches `recipe_name`, if an `order_type`
+-- is defined, then it will also check for a match against it.
+-- Returns nil if no match was found.
 --
 function SmartCraftOrderList:_sc_find_craft_order(recipe_name, order_type)
    log:debug('finding a recipe for "%s"', recipe_name)
-   log:debug('There are %d orders', radiant.size(self._sv.orders)-1)
+   log:debug('There are %d orders', radiant.size(self._sv.orders) - 1)
 
    for _,order in pairs(self._sv.orders) do
       if type(order) ~= 'number' then

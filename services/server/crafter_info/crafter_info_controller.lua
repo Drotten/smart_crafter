@@ -2,9 +2,9 @@ local CrafterInfoController = class()
 
 local log = radiant.log.create_logger('crafter_info')
 
-
 function CrafterInfoController:initialize()
    self._sv.crafters = {}
+   self._sv.reserved_ingredients = {}
 end
 
 function CrafterInfoController:create(player_id)
@@ -114,5 +114,36 @@ function CrafterInfoController:get_recipe_list(crafter_uri)
    return self._sv.crafters[crafter_uri].recipe_list
 end
 
+function CrafterInfoController:get_reserved_ingredients(ingredient_type)
+   if not self._sv.reserved_ingredients[ingredient_type] then
+      return 0
+   end
+
+   return self._sv.reserved_ingredients[ingredient_type]
+end
+
+function CrafterInfoController:add_to_reserved_ingredients(ingredient_type, amount)
+   if not self._sv.reserved_ingredients[ingredient_type] then
+      self._sv.reserved_ingredients[ingredient_type] = amount
+      return
+   end
+
+   log:detail('adding %d of "%s" to the reserved list', amount, ingredient_type)
+
+   self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] + amount
+end
+
+function CrafterInfoController:remove_from_reserved_ingredients(ingredient_type, amount)
+   if not self._sv.reserved_ingredients[ingredient_type] then
+      return
+   end
+
+   log:detail('removing %d of "%s" from the reserved list', amount, ingredient_type)
+
+   self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] - amount
+   if self._sv.reserved_ingredients[ingredient_type] == 0 then
+      self._sv.reserved_ingredients[ingredient_type] = nil
+   end
+end
 
 return CrafterInfoController

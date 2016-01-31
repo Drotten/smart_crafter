@@ -2,6 +2,7 @@
 
 - **Bug fix** - Update mod to work for Stonehearth Alpha 14.
 - **Feature** - Makes sure that any one recipe can't have more than one maintain order.
+- **Feature** - Take into account what's available for the crafter, or if any resources are reserved for other purposes.
 
 
 ### Version 1.0.3.1

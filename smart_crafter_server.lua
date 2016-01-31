@@ -1,14 +1,17 @@
 smart_crafter = {}
 
-local function monkey_craft_order_list()
+local function monkey_crafter()
    local smart_craft_order_list = require('smart_craft_order_list')
    local craft_order_list = radiant.mods.require('stonehearth.components.workshop.craft_order_list')
    radiant.mixin(craft_order_list, smart_craft_order_list)
-end
 
-local function monkey_job_info_controller()
+
+   local smart_craft_order = require('smart_craft_order')
+   local craft_order = radiant.mods.require('stonehearth.components.workshop.craft_order')
+   radiant.mixin(craft_order, smart_craft_order)
+
+
    local job_info_controller = radiant.mods.require('stonehearth.services.server.job.job_info_controller')
-
    job_info_controller.get_recipe_list = function(self)
       return self._sv.recipe_list
    end
@@ -33,8 +36,8 @@ end
 
 function smart_crafter:_on_required_loaded()
    smart_crafter._sv = smart_crafter.__saved_variables:get_data()
-   monkey_craft_order_list()
-   monkey_job_info_controller()
+
+   monkey_crafter()
 
    create_service('crafter_info')
 end
