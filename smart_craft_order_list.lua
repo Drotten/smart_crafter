@@ -40,7 +40,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
          log:debug('we need %d, have %d in storage, have %d in order list (%d of which are maintained), and %d reserved which means we are missing %d (math is hard, right?)',
             needed, in_storage, in_order_list.total, in_order_list.maintain, crafter_info:get_reserved_ingredients(ingredient_type), missing)
 
-         crafter_info:add_to_reserved_ingredients(ingredient_type, needed - in_order_list.maintain)
+         crafter_info:add_to_reserved_ingredients(ingredient_type, math.max(needed - in_order_list.maintain, 0))
       else -- condition.type == 'maintain'
          missing = ingredient.count
 
@@ -92,13 +92,15 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
             -- The order is to be replaced, so remove the current one so when the new one is added;
             -- there are no duplicates of the same recipe.
 
+            log:debug('replacing the order with %d as its new amount', condition.at_least)
+
             -- Note: It would be preferable to change the order's `at_least` value directly instead, but
             --       I haven't found a way to accomplish that *and* have the ui update itself instantly.
 
             old_order_index = self:find_index_of(order:get_id())
             self:remove_order(order)
          else
-            -- There is already a maintain order that fulfills what is asked of, so just return.
+            log:debug('an order already exists that fulfills what is asked of')
             return true
          end
       end
@@ -136,17 +138,28 @@ function SmartCraftOrderList:delete_order(session, response, order_id)
    local condition = order:get_condition()
 
    if condition.type == 'make' and condition.remaining > 0 then
-      local crafter_info = smart_crafter.crafter_info:get_crafter_info(session.player_id)
-      for _,ingredient in pairs(order:get_recipe().ingredients) do
-         local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient)
-         local ingredient_type = ingredient.uri or ingredient.material
-         local amount = ingredient.count * condition.remaining - in_order_list.maintain
-
-         crafter_info:remove_from_reserved_ingredients(ingredient_type, amount)
-      end
+      self:remove_from_reserved_ingredients(order:get_recipe().ingredients, order_id, session.player_id, condition.remaining)
    end
 
    return self:_sc_old_delete_order(session, response, order_id)
+end
+
+-- All within `ingredients` are removed from the reserved ingredients table.
+-- `order_id` is the id of the order that we are to remove of.
+-- `player_id` says which player id the order belongs to.
+-- `multiple` says by how much the ingredients' count will be multiplied by,
+-- if it's not specified it will get the value of 1.
+--
+function SmartCraftOrderList:remove_from_reserved_ingredients(ingredients, order_id, player_id, multiple)
+   multiple = multiple or 1
+   local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
+   for _,ingredient in pairs(ingredients) do
+      local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient, order_id)
+      local ingredient_type = ingredient.uri or ingredient.material
+      local amount = math.max(ingredient.count * multiple - in_order_list.maintain, 0)
+
+      crafter_info:remove_from_reserved_ingredients(ingredient_type, amount)
+   end
 end
 
 -- Used to get a recipe if it can be used to craft `ingredient`.
@@ -161,7 +174,7 @@ function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, cra
          if ingredient.material then
             local recipe_material_comp = recipe.product_info.components["stonehearth:material"]
 
-            log:detail('Checking on a match between material "%s" and product "%s" with its material tags "%s"',
+            log:spam('matching material "%s" and product "%s" with its material "%s"',
                item,
                recipe.product_info.components.unit_info.display_name,
                recipe_material_comp and recipe_material_comp.tags or '-no materials-')
@@ -178,7 +191,7 @@ function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, cra
          else
             for _,product in pairs(recipe.produces) do
 
-               log:detail('Checking on a match between item "%s" and product "%s"', item, product.item)
+               log:spam('matching item "%s" and product "%s"', item, product.item)
                -- `item` is a uri, so we can simply search for a direct match against their aliases.
                if product.item == item then
                   return
@@ -226,8 +239,10 @@ function SmartCraftOrderList:_sc_get_ingredient_amount_in_storage(ingredient, in
 end
 
 -- Checks this order list to see how much of `ingredient` it contains.
+-- The optional `to_order_id` says that any orders with their id,
+-- that are at least of that number, will be ignored.
 --
-function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient)
+function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, to_order_id)
    local ingredient_count =
       {
          total    = 0,
@@ -244,18 +259,22 @@ function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient)
             if recipe.product_info.components
             and recipe.product_info.components['stonehearth:material']
             and self:_sc_tags_match(ingredient.material, recipe.product_info.components['stonehearth:material'].tags) then
-               if condition.type == 'make' then
-                  ingredient_count.make = ingredient_count.make + condition.remaining
-               else
-                  ingredient_count.maintain = ingredient_count.maintain + condition.at_least
+               local amount = condition.remaining
+               if condition.type == 'maintain' then
+                  amount = condition.at_least
+               end
+               if not to_order_id or order:get_id() < to_order_id then
+                  ingredient_count[condition.type] = ingredient_count[condition.type] + amount
                end
             end
 
          elseif recipe.produces.item == ingredient.uri then
-            if condition.type == 'make' then
-               ingredient_count.make = ingredient_count.make + condition.remaining
-            else
-               ingredient_count.maintain = ingredient_count.maintain + condition.at_least
+            local amount = condition.remaining
+            if condition.type == 'maintain' then
+               amount = condition.at_least
+            end
+            if not to_order_id or order:get_id() < to_order_id then
+               ingredient_count[condition.type] = ingredient_count[condition.type] + amount
             end
          end
       end
