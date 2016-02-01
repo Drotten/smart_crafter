@@ -255,20 +255,13 @@ function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, 
          local recipe = order:get_recipe()
          local condition = order:get_condition()
 
-         if ingredient.material then
-            if recipe.product_info.components
-            and recipe.product_info.components['stonehearth:material']
-            and self:_sc_tags_match(ingredient.material, recipe.product_info.components['stonehearth:material'].tags) then
-               local amount = condition.remaining
-               if condition.type == 'maintain' then
-                  amount = condition.at_least
-               end
-               if not to_order_id or order:get_id() < to_order_id then
-                  ingredient_count[condition.type] = ingredient_count[condition.type] + amount
-               end
-            end
+         if (ingredient.material
+         and recipe.product_info.components
+         and recipe.product_info.components['stonehearth:material']
+         and self:_sc_tags_match(ingredient.material, recipe.product_info.components['stonehearth:material'].tags))
+         or (ingredient.uri
+         and recipe.produces.item == ingredient.uri) then
 
-         elseif recipe.produces.item == ingredient.uri then
             local amount = condition.remaining
             if condition.type == 'maintain' then
                amount = condition.at_least
@@ -276,6 +269,7 @@ function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, 
             if not to_order_id or order:get_id() < to_order_id then
                ingredient_count[condition.type] = ingredient_count[condition.type] + amount
             end
+
          end
       end
    end
