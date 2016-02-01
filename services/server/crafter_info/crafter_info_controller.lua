@@ -123,12 +123,14 @@ function CrafterInfoController:get_reserved_ingredients(ingredient_type)
 end
 
 function CrafterInfoController:add_to_reserved_ingredients(ingredient_type, amount)
+   log:debug('adding %d of "%s" to the reserved list', amount, ingredient_type)
+   -- uncomment logging when we want to see the table's contents
+   --log:debug('reserved list: %s', radiant.util.table_tostring(self._sv.reserved_ingredients))
+
    if not self._sv.reserved_ingredients[ingredient_type] then
       self._sv.reserved_ingredients[ingredient_type] = amount
       return
    end
-
-   log:detail('adding %d of "%s" to the reserved list', amount, ingredient_type)
 
    self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] + amount
 end
@@ -138,7 +140,9 @@ function CrafterInfoController:remove_from_reserved_ingredients(ingredient_type,
       return
    end
 
-   log:detail('removing %d of "%s" from the reserved list', amount, ingredient_type)
+   log:debug('removing %d of "%s" from the reserved list', amount, ingredient_type)
+   -- uncomment logging when we want to see the table's contents
+   --log:debug('reserved list: %s', radiant.util.table_tostring(self._sv.reserved_ingredients))
 
    self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] - amount
    if self._sv.reserved_ingredients[ingredient_type] == 0 then
