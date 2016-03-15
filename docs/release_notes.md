@@ -1,3 +1,8 @@
+### Version 1.1.1
+
+- **Bug fix** - Updated mod to have it work for Stonehearth Alpha 15.
+
+
 ### Version 1.1
 
 - **Bug fix** - Update mod to work for Stonehearth Alpha 14.
