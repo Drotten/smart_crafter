@@ -11,9 +11,9 @@ SmartCraftOrderList._sc_old_add_order = CraftOrderList.add_order
 -- Furthermore, when maintaining orders, it makes sure that there are no more than
 -- one instance of each recipe that's maintained.
 --
-function SmartCraftOrderList:add_order(session, response, recipe, condition, is_recursive_call)
-   local inv = stonehearth.inventory:get_inventory(session.player_id)
-   local crafter_info = smart_crafter.crafter_info:get_crafter_info(session.player_id)
+function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursive_call)
+   local inv = stonehearth.inventory:get_inventory(player_id)
+   local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
 
    -- Process the recipe's ingredients to see if the crafter has all she needs for it.
    for _,ingredient in pairs(recipe.ingredients) do
@@ -70,7 +70,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
                recipe_info.recipe.recipe_name, recipe_info.crafter, new_condition.type, missing)
 
             -- Add the new order to the appropiate order list
-            recipe_info.order_list:add_order(session, response, recipe_info.recipe, new_condition, true)
+            recipe_info.order_list:add_order(player_id, recipe_info.recipe, new_condition, true)
          end
       end
    end
@@ -106,7 +106,7 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
       end
    end
 
-   local result = self:_sc_old_add_order(session, response, recipe, condition)
+   local result = self:_sc_old_add_order(player_id, recipe, condition)
 
    if old_order_index then
       -- Change the order of the recipe to what its predecessor had.
@@ -128,12 +128,12 @@ function SmartCraftOrderList:add_order(session, response, recipe, condition, is_
    return result
 end
 
-SmartCraftOrderList._sc_old_delete_order = CraftOrderList.delete_order
--- In addition to the original delete_order function (from craft_order_list.lua),
+SmartCraftOrderList._sc_old_delete_order_command = CraftOrderList.delete_order_command
+-- In addition to the original delete_order_command function (from craft_order_list.lua),
 -- here it's also making sure that the ingredients needed for the order is removed
 -- from the reserved ingredients table.
 --
-function SmartCraftOrderList:delete_order(session, response, order_id)
+function SmartCraftOrderList:delete_order_command(session, response, order_id)
    local order = self._sv.orders[ self:find_index_of(order_id) ]
    local condition = order:get_condition()
 
@@ -141,7 +141,7 @@ function SmartCraftOrderList:delete_order(session, response, order_id)
       self:remove_from_reserved_ingredients(order:get_recipe().ingredients, order_id, session.player_id, condition.remaining)
    end
 
-   return self:_sc_old_delete_order(session, response, order_id)
+   return self:_sc_old_delete_order_command(session, response, order_id)
 end
 
 -- All within `ingredients` are removed from the reserved ingredients table.
