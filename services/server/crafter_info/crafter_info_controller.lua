@@ -49,12 +49,12 @@ function CrafterInfoController:_format_recipe_list(recipe_list)
          local formatted_ingredient = {}
 
          if ingredient.material then
-            local constants = radiant.resources.load_json('/stonehearth/ui/data/constants.json')
+            local constants = radiant.resources.load_json('/stonehearth/data/resource_constants.json')
 
             formatted_ingredient.kind       = 'material'
             formatted_ingredient.material   = ingredient.material
             formatted_ingredient.identifier = self:_sort_material(ingredient.material)
-            local resource = constants.formatting.resources[ingredient.material]
+            local resource = constants.resources[ingredient.material]
             if resource then
                formatted_ingredient.name = resource.name
                formatted_ingredient.icon = resource.icon
