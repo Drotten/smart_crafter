@@ -1,3 +1,8 @@
+### Version 1.1.2
+
+- **Bug fix** - Material tags are now word-border matched.
+
+
 ### Version 1.1.1
 
 - **Bug fix** - Updated mod to have it work for Stonehearth Alpha 15.
