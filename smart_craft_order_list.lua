@@ -279,13 +279,13 @@ function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, 
 end
 
 -- Checks to see if `tags_string1` is a sub-set of `tags_string2`.
--- Returns a boolean depending on the result.
+-- Returns true if it is, else false.
 --
 function SmartCraftOrderList:_sc_tags_match(tags_string1, tags_string2)
    for tag in tags_string1:gmatch("([^ ]*)") do
       -- gmatch will return either 1 tag or the empty string.
       -- make sure we skip over the empty strings!
-      if tag ~= '' and not string.find(tags_string2, tag) then
+      if tag ~= '' and not tags_string2:find("%f[%a|_]".. tag .."%f[%A]") then
          return false
       end
    end
