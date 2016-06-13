@@ -282,10 +282,15 @@ end
 -- Returns true if it is, else false.
 --
 function SmartCraftOrderList:_sc_tags_match(tags_string1, tags_string2)
+   -- Hack!
+   -- Add a space at the end to make the frontier pattern search succeed at all times.
+   tags_string2 = tags_string2 .. ' '
+   -- gmatch will return either 1 tag or the empty string.
+   -- make sure we skip over the empty strings!
    for tag in tags_string1:gmatch("([^ ]*)") do
-      -- gmatch will return either 1 tag or the empty string.
-      -- make sure we skip over the empty strings!
-      if tag ~= '' and not tags_string2:find("%f[%a|_]".. tag .."%f[%A]") then
+      -- use frontier pattern to find the tag,
+      -- whilst making sure that it's a word-border search.
+      if tag ~= '' and not tags_string2:find("%f[%a%d_]".. tag .."%f[ ]") then
          return false
       end
    end
