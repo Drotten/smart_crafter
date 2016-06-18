@@ -2,6 +2,7 @@
 
 - **Performance** - It's now faster when finding recipes that produces an item needed for another recipe.
 - **Performance** - The crafting recipes are now checked when game is launched instead of when the first order is placed.
+- **Improvement** - Now works better for saved games.
 
 
 ### Version 1.1.2
