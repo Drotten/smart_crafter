@@ -16,7 +16,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
    local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
 
    -- Process the recipe's ingredients to see if the crafter has all she needs for it.
-   for _,ingredient in pairs(recipe.ingredients) do
+   for _, ingredient in pairs(recipe.ingredients) do
       local ingredient_type = ingredient.uri or ingredient.material
 
       log:debug('processing ingredient "%s"', ingredient_type)
@@ -37,7 +37,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
          local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient)
          missing = math.max(needed - math.max(in_storage + in_order_list.total - crafter_info:get_reserved_ingredients(ingredient_type), 0), 0)
 
-         log:debug('we need %d, have %d in storage, have %d in order list (%d of which are maintained), and %d reserved which means we are missing %d (math is hard, right?)',
+         log:debug('we need %d, have %d in storage, have %d in order list (%d of which are maintained), and %d reserved so we are missing %d (math is hard, right?)',
             needed, in_storage, in_order_list.total, in_order_list.maintain, crafter_info:get_reserved_ingredients(ingredient_type), missing)
 
          crafter_info:add_to_reserved_ingredients(ingredient_type, math.max(needed - in_order_list.maintain, 0))
@@ -66,8 +66,8 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
                new_condition.at_least = missing
             end
 
-            log:debug('adding the recipe "%s" for a %s to %s %d of those',
-               recipe_info.recipe.recipe_name, recipe_info.crafter, new_condition.type, missing)
+            log:debug('adding the recipe "%s" to %s %d of those',
+               recipe_info.recipe.recipe_name, new_condition.type, missing)
 
             -- Add the new order to the appropiate order list
             recipe_info.order_list:add_order(player_id, recipe_info.recipe, new_condition, true)
@@ -153,7 +153,7 @@ end
 function SmartCraftOrderList:remove_from_reserved_ingredients(ingredients, order_id, player_id, multiple)
    multiple = multiple or 1
    local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
-   for _,ingredient in pairs(ingredients) do
+   for _, ingredient in pairs(ingredients) do
       local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient, order_id)
       local ingredient_type = ingredient.uri or ingredient.material
       local amount = math.max(ingredient.count * multiple - in_order_list.maintain, 0)
@@ -163,47 +163,14 @@ function SmartCraftOrderList:remove_from_reserved_ingredients(ingredients, order
 end
 
 -- Used to get a recipe if it can be used to craft `ingredient`.
--- Information such as what kind of crafter is needed and its order list,
--- and, of course, the recipe itself.
+-- Returns information such as what the recipe itself and the order list used for it.
 --
 function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
    local item = ingredient.uri or ingredient.material
 
-   for crafter_uri, crafter in pairs(crafter_info:get_crafters()) do
-      for _,recipe in pairs(crafter.recipe_list) do
-         if ingredient.material then
-            local recipe_material_comp = recipe.product_info.components["stonehearth:material"]
-
-            log:spam('matching material "%s" and product "%s" with its material "%s"',
-               item,
-               recipe.product_info.components.unit_info.display_name,
-               recipe_material_comp and recipe_material_comp.tags or '-no materials-')
-
-            -- Look within the recipe's material tags for a match against `item`
-            if recipe_material_comp and self:_sc_tags_match(item, recipe_material_comp.tags) then
-               return
-                  {
-                     crafter    = crafter_uri,
-                     order_list = crafter.order_list,
-                     recipe     = recipe,
-                  }
-            end
-         else
-            for _,product in pairs(recipe.produces) do
-
-               log:spam('matching item "%s" and product "%s"', item, product.item)
-               -- `item` is a uri, so we can simply search for a direct match against their aliases.
-               if product.item == item then
-                  return
-                     {
-                        crafter    = crafter_uri,
-                        order_list = crafter.order_list,
-                        recipe     = recipe,
-                     }
-               end
-            end
-         end
-      end
+   --TODO: improve by checking on all the recipes to see which is best to make
+   for _, recipe_info in pairs(crafter_info:get_possible_recipes(item)) do
+      return recipe_info
    end
 
    return nil
@@ -240,17 +207,16 @@ end
 
 -- Checks this order list to see how much of `ingredient` it contains.
 -- The optional `to_order_id` says that any orders with their id,
--- that are at least of that number, will be ignored.
+-- that are at least as great as that number, will be ignored.
 --
 function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, to_order_id)
-   local ingredient_count =
-      {
-         total    = 0,
-         make     = 0,
-         maintain = 0,
-      }
+   local ingredient_count = {
+      total    = 0,
+      make     = 0,
+      maintain = 0,
+   }
 
-   for _,order in pairs(self._sv.orders) do
+   for _, order in pairs(self._sv.orders) do
       if type(order) ~= 'number' then
          local recipe = order:get_recipe()
          local condition = order:get_condition()
@@ -305,7 +271,7 @@ function SmartCraftOrderList:_sc_find_craft_order(recipe_name, order_type)
    log:debug('finding a recipe for "%s"', recipe_name)
    log:debug('There are %d orders', radiant.size(self._sv.orders) - 1)
 
-   for _,order in pairs(self._sv.orders) do
+   for _, order in pairs(self._sv.orders) do
       if type(order) ~= 'number' then
          local order_recipe_name = order:get_recipe().recipe_name
          log:debug('evaluating order with recipe "%s"', order_recipe_name)

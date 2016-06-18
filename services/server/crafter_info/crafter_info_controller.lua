@@ -1,98 +1,101 @@
 local CrafterInfoController = class()
 
-local log = radiant.log.create_logger('crafter_info')
-
 function CrafterInfoController:initialize()
-   self._crafters = {}
+   self._recipe_map = radiant.create_controller('smart_crafter:recipe_map')
    self._reserved_ingredients = {}
+   self._log = radiant.log.create_logger('crafter_info')
 end
 
 function CrafterInfoController:create(player_id)
    local pop = stonehearth.population:get_population(player_id)
    local job_index = radiant.resources.load_json( pop:get_job_index() )
 
-   for _,job in pairs(job_index.jobs) do
+   for _, job in pairs(job_index.jobs) do
       local job_info = stonehearth.job:get_job_info(player_id, job.description)
       -- If `job_info` contains a recipe list, then `job` is a crafter.
       local recipe_list = job_info:get_recipe_list()
       if recipe_list then
-         self._crafters[job.description] =
-            {
-               order_list  = job_info:get_order_list(),
-               recipe_list = self:_format_recipe_list(recipe_list),
-            }
+         local order_list = job_info:get_order_list()
+
+         for category_name, category_data in pairs(recipe_list) do
+            for recipe_name, recipe_data in pairs(category_data.recipes) do
+               local formatted_recipe = self:_format_recipe(recipe_data.recipe)
+               -- Get the produces uris as well as the material tags of the recipe's product,
+               -- and add those as the key as well as the order_list and the recipe as the value.
+               local keys = ''
+               for _, producing in pairs(formatted_recipe.produces) do
+                  keys = keys .. ' ' .. producing.item
+               end
+               local product_material = formatted_recipe.product_info.components["stonehearth:material"]
+               if product_material then
+                  keys = keys .. ' ' .. product_material.tags
+               end
+               self._recipe_map:add(keys, {
+                  order_list = order_list,
+                  recipe = formatted_recipe,
+               })
+            end
+         end
       end
    end
 end
 
-function CrafterInfoController:_format_recipe_list(recipe_list)
-   local function format_recipe(recipe)
-      -- Format recipe to match show_team_workshop.js:_buildRecipeArray().
-      local formatted_recipe = radiant.shallow_copy(recipe)
+function CrafterInfoController:_format_recipe(recipe)
+   -- Format recipe to match show_team_workshop.js:_buildRecipeArray().
+   local formatted_recipe = radiant.shallow_copy(recipe)
 
-      -- Add information pertaining the workshop.
-      local workshop_uri = recipe.workshop
-      formatted_recipe.hasWorkshop = workshop_uri ~= nil
-      if formatted_recipe.hasWorkshop then
-         local workshop_data = radiant.resources.load_json(workshop_uri)
-         formatted_recipe.workshop =
-            {
-               name = workshop_data.components.unit_info.display_name,
-               icon = workshop_data.components.unit_info.icon,
-               uri  = workshop_uri,
-            }
-      end
+   -- Add information pertaining the workshop.
+   local workshop_uri = recipe.workshop
+   formatted_recipe.hasWorkshop = workshop_uri ~= nil
+   if formatted_recipe.hasWorkshop then
+      local workshop_data = radiant.resources.load_json(workshop_uri)
+      formatted_recipe.workshop = {
+         name = workshop_data.components.unit_info.display_name,
+         icon = workshop_data.components.unit_info.icon,
+         uri  = workshop_uri,
+      }
+   end
 
-      -- Add extra information to each ingredient in the recipe.
-      local formatted_ingredients = {}
-      for _,ingredient in pairs(recipe.ingredients) do
-         local formatted_ingredient = {}
+   -- Add extra information to each ingredient in the recipe.
+   local formatted_ingredients = {}
+   for _, ingredient in pairs(recipe.ingredients) do
+      local formatted_ingredient = {}
 
-         if ingredient.material then
-            local constants = radiant.resources.load_json('/stonehearth/data/resource_constants.json')
+      if ingredient.material then
+         local constants = radiant.resources.load_json('/stonehearth/data/resource_constants.json')
 
-            formatted_ingredient.kind       = 'material'
-            formatted_ingredient.material   = ingredient.material
-            formatted_ingredient.identifier = self:_sort_material(ingredient.material)
-            local resource = constants.resources[ingredient.material]
-            if resource then
-               formatted_ingredient.name = resource.name
-               formatted_ingredient.icon = resource.icon
-            end
-         else
-            local ingredient_data = radiant.resources.load_json(ingredient.uri)
+         formatted_ingredient.kind       = 'material'
+         formatted_ingredient.material   = ingredient.material
+         formatted_ingredient.identifier = self:_sort_material(ingredient.material)
+         local resource = constants.resources[ingredient.material]
+         if resource then
+            formatted_ingredient.name = resource.name
+            formatted_ingredient.icon = resource.icon
+         end
+      else
+         local ingredient_data = radiant.resources.load_json(ingredient.uri)
 
-            formatted_ingredient.kind       = 'uri'
-            formatted_ingredient.identifier = ingredient.uri
+         formatted_ingredient.kind       = 'uri'
+         formatted_ingredient.identifier = ingredient.uri
 
-            if ingredient_data.components then
-               formatted_ingredient.name = ingredient_data.components.unit_info.display_name
-               formatted_ingredient.icon = ingredient_data.components.unit_info.icon
-               formatted_ingredient.uri  = ingredient.uri
+         if ingredient_data.components then
+            formatted_ingredient.name = ingredient_data.components.unit_info.display_name
+            formatted_ingredient.icon = ingredient_data.components.unit_info.icon
+            formatted_ingredient.uri  = ingredient.uri
 
-               if ingredient_data.components['stonehearth:entity_forms'] and ingredient_data.components['stonehearth:entity_forms'].iconic_form then
-                  formatted_ingredient.identifier = ingredient_data.components['stonehearth:entity_forms'].iconic_form
-               end
+            if ingredient_data.components['stonehearth:entity_forms'] and ingredient_data.components['stonehearth:entity_forms'].iconic_form then
+               formatted_ingredient.identifier = ingredient_data.components['stonehearth:entity_forms'].iconic_form
             end
          end
-
-         formatted_ingredient.count = ingredient.count
-
-         table.insert(formatted_ingredients, formatted_ingredient)
       end
-      formatted_recipe.ingredients = formatted_ingredients
 
-      return formatted_recipe
+      formatted_ingredient.count = ingredient.count
+
+      table.insert(formatted_ingredients, formatted_ingredient)
    end
+   formatted_recipe.ingredients = formatted_ingredients
 
-   local formatted_recipe_list = {}
-   for category_name, category_data in pairs(recipe_list) do
-      for recipe_name, recipe_data in pairs(category_data.recipes) do
-         table.insert(formatted_recipe_list, format_recipe(recipe_data.recipe))
-      end
-   end
-
-   return formatted_recipe_list
+   return formatted_recipe
 end
 
 function CrafterInfoController:_sort_material(material)
@@ -102,16 +105,8 @@ function CrafterInfoController:_sort_material(material)
    return table.concat(tags, ' ')
 end
 
-function CrafterInfoController:get_crafters()
-   return self._crafters
-end
-
-function CrafterInfoController:get_order_list(crafter_uri)
-   return self._crafters[crafter_uri].order_list
-end
-
-function CrafterInfoController:get_recipe_list(crafter_uri)
-   return self._crafters[crafter_uri].recipe_list
+function CrafterInfoController:get_possible_recipes(tags)
+   return self._recipe_map:intersecting_values(tags)
 end
 
 function CrafterInfoController:get_reserved_ingredients(ingredient_type)
@@ -124,8 +119,8 @@ end
 
 function CrafterInfoController:add_to_reserved_ingredients(ingredient_type, amount)
    -- uncomment logging when we want to see the table's contents
-   --log:debug('current reserved list: %s', radiant.util.table_tostring(self._reserved_ingredients))
-   log:debug('adding %d of "%s" to the reserved list', amount, ingredient_type)
+   --self._log:debug('current reserved list: %s', radiant.util.table_tostring(self._reserved_ingredients))
+   self._log:debug('adding %d of "%s" to the reserved list', amount, ingredient_type)
 
    if not self._reserved_ingredients[ingredient_type] then
       self._reserved_ingredients[ingredient_type] = amount
@@ -141,8 +136,8 @@ function CrafterInfoController:remove_from_reserved_ingredients(ingredient_type,
    end
 
    -- uncomment logging when we want to see the table's contents
-   --log:debug('current reserved list: %s', radiant.util.table_tostring(self._reserved_ingredients))
-   log:debug('removing %d of "%s" from the reserved list', amount, ingredient_type)
+   --self._log:debug('current reserved list: %s', radiant.util.table_tostring(self._reserved_ingredients))
+   self._log:debug('removing %d of "%s" from the reserved list', amount, ingredient_type)
 
    self._reserved_ingredients[ingredient_type] = self._reserved_ingredients[ingredient_type] - amount
    if self._reserved_ingredients[ingredient_type] == 0 then
