@@ -1,5 +1,7 @@
 smart_crafter = {}
 
+smart_crafter.util = require("lib.util")
+
 local function monkey_crafter()
    local smart_craft_order_list = require('smart_craft_order_list')
    local craft_order_list = radiant.mods.require('stonehearth.components.workshop.craft_order_list')
