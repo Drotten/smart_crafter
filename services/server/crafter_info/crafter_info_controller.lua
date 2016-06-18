@@ -1,12 +1,22 @@
 local CrafterInfoController = class()
 
 function CrafterInfoController:initialize()
-   self._recipe_map = radiant.create_controller('smart_crafter:recipe_map')
-   self._reserved_ingredients = {}
    self._log = radiant.log.create_logger('crafter_info')
+   self._recipe_map = radiant.create_controller('smart_crafter:recipe_map')
+
+   if not self._sv.reserved_ingredients then
+      self._sv.reserved_ingredients = {}
+      self._sv.player_id = nil
+   end
 end
 
 function CrafterInfoController:create(player_id)
+   self._sv.player_id = player_id
+end
+
+function CrafterInfoController:post_activate()
+   self._log:debug('post_activate')
+   local player_id = self._sv.player_id
    local pop = stonehearth.population:get_population(player_id)
    local job_index = radiant.resources.load_json( pop:get_job_index() )
 
@@ -110,38 +120,38 @@ function CrafterInfoController:get_possible_recipes(tags)
 end
 
 function CrafterInfoController:get_reserved_ingredients(ingredient_type)
-   if not self._reserved_ingredients[ingredient_type] then
+   if not self._sv.reserved_ingredients[ingredient_type] then
       return 0
    end
 
-   return self._reserved_ingredients[ingredient_type]
+   return self._sv.reserved_ingredients[ingredient_type]
 end
 
 function CrafterInfoController:add_to_reserved_ingredients(ingredient_type, amount)
    -- uncomment logging when we want to see the table's contents
-   --self._log:debug('current reserved list: %s', radiant.util.table_tostring(self._reserved_ingredients))
+   --self._log:debug('current reserved list: %s', radiant.util.table_tostring(self._sv.reserved_ingredients))
    self._log:debug('adding %d of "%s" to the reserved list', amount, ingredient_type)
 
-   if not self._reserved_ingredients[ingredient_type] then
-      self._reserved_ingredients[ingredient_type] = amount
+   if not self._sv.reserved_ingredients[ingredient_type] then
+      self._sv.reserved_ingredients[ingredient_type] = amount
       return
    end
 
-   self._reserved_ingredients[ingredient_type] = self._reserved_ingredients[ingredient_type] + amount
+   self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] + amount
 end
 
 function CrafterInfoController:remove_from_reserved_ingredients(ingredient_type, amount)
-   if not self._reserved_ingredients[ingredient_type] then
+   if not self._sv.reserved_ingredients[ingredient_type] then
       return
    end
 
    -- uncomment logging when we want to see the table's contents
-   --self._log:debug('current reserved list: %s', radiant.util.table_tostring(self._reserved_ingredients))
+   --self._log:debug('current reserved list: %s', radiant.util.table_tostring(self._sv.reserved_ingredients))
    self._log:debug('removing %d of "%s" from the reserved list', amount, ingredient_type)
 
-   self._reserved_ingredients[ingredient_type] = self._reserved_ingredients[ingredient_type] - amount
-   if self._reserved_ingredients[ingredient_type] == 0 then
-      self._reserved_ingredients[ingredient_type] = nil
+   self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] - amount
+   if self._sv.reserved_ingredients[ingredient_type] == 0 then
+      self._sv.reserved_ingredients[ingredient_type] = nil
    end
 end
 
