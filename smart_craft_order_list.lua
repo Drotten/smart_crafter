@@ -17,9 +17,9 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
 
    -- Process the recipe's ingredients to see if the crafter has all she needs for it.
    for _, ingredient in pairs(recipe.ingredients) do
-      local ingredient_type = ingredient.uri or ingredient.material
+      local ingredient_id = ingredient.identifier
 
-      log:debug('processing ingredient "%s"', ingredient_type)
+      log:debug('processing ingredient "%s"', ingredient_id)
 
       -- Step 1: `make`:
       --         See if there are enough of the asked ingredient in the inventory:
@@ -34,13 +34,20 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
       if condition.type == 'make' then
          local needed = condition.amount * ingredient.count
          local in_storage = self:_sc_get_ingredient_amount_in_storage(ingredient, inv)
-         local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient)
-         missing = math.max(needed - math.max(in_storage + in_order_list.total - crafter_info:get_reserved_ingredients(ingredient_type), 0), 0)
+         -- Go through and combine the orders in all the order lists.
+         local in_order_list = {}
+         for _, order_list in ipairs(crafter_info:get_order_lists()) do
+            local order_list_amount = order_list:sc_get_ingredient_amount_in_order_list(ingredient)
+            for k, v in pairs(order_list_amount) do
+               in_order_list[k] = (in_order_list[k] or 0) + v
+            end
+         end
+         missing = math.max(needed - math.max(in_storage + in_order_list.total - crafter_info:get_reserved_ingredients(ingredient_id), 0), 0)
 
          log:debug('we need %d, have %d in storage, have %d in order list (%d of which are maintained), and %d reserved so we are missing %d (math is hard, right?)',
-            needed, in_storage, in_order_list.total, in_order_list.maintain, crafter_info:get_reserved_ingredients(ingredient_type), missing)
+            needed, in_storage, in_order_list.total, in_order_list.maintain, crafter_info:get_reserved_ingredients(ingredient_id), missing)
 
-         crafter_info:add_to_reserved_ingredients(ingredient_type, math.max(needed - in_order_list.maintain, 0))
+         crafter_info:add_to_reserved_ingredients(ingredient_id, math.max(needed - in_order_list.maintain, 0))
       else -- condition.type == 'maintain'
          missing = ingredient.count
 
@@ -55,7 +62,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
 
          local recipe_info = self:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
          if recipe_info then
-            log:debug('a "%s" can be made via the recipe "%s"', ingredient_type, recipe_info.recipe.recipe_name)
+            log:debug('a "%s" can be made via the recipe "%s"', ingredient_id, recipe_info.recipe.recipe_name)
 
             -- Step 3: Recursively check on the ingredient's recipe.
 
@@ -155,10 +162,10 @@ function SmartCraftOrderList:remove_from_reserved_ingredients(ingredients, order
    local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
    for _, ingredient in pairs(ingredients) do
       local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient, order_id)
-      local ingredient_type = ingredient.uri or ingredient.material
+      local ingredient_id = ingredient.identifier
       local amount = math.max(ingredient.count * multiple - in_order_list.maintain, 0)
 
-      crafter_info:remove_from_reserved_ingredients(ingredient_type, amount)
+      crafter_info:remove_from_reserved_ingredients(ingredient_id, amount)
    end
 end
 
@@ -166,7 +173,7 @@ end
 -- Returns information such as what the recipe itself and the order list used for it.
 --
 function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
-   local item = ingredient.uri or ingredient.material
+   local item = ingredient.identifier
 
    --TODO: improve by checking on all the recipes to see which is best to make
    for _, recipe_info in pairs(crafter_info:get_possible_recipes(item)) do
@@ -211,30 +218,31 @@ end
 --
 function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, to_order_id)
    local ingredient_count = {
-      total    = 0,
-      make     = 0,
+      make = 0,
       maintain = 0,
+      total = 0,
    }
 
    for _, order in pairs(self._sv.orders) do
       if type(order) ~= 'number' then
+         if to_order_id and order:get_id() >= to_order_id then
+            break
+         end
          local recipe = order:get_recipe()
          local condition = order:get_condition()
 
          if (ingredient.material
-         and recipe.product_info.components
-         and recipe.product_info.components['stonehearth:material']
-         and self:_sc_tags_match(ingredient.material, recipe.product_info.components['stonehearth:material'].tags))
+         and type(recipe.product_uri) == 'table'
+         and recipe.product_uri.entity_data["stonehearth:catalog"].material_tags
+         and self:_sc_tags_match(ingredient.material, recipe.product_uri.entity_data["stonehearth:catalog"].material_tags))
          or (ingredient.uri
-         and recipe.produces.item == ingredient.uri) then
+         and recipe.product_uri == ingredient.uri) then
 
             local amount = condition.remaining
             if condition.type == 'maintain' then
                amount = condition.at_least
             end
-            if not to_order_id or order:get_id() < to_order_id then
-               ingredient_count[condition.type] = ingredient_count[condition.type] + amount
-            end
+            ingredient_count[condition.type] = ingredient_count[condition.type] + amount
 
          end
       end

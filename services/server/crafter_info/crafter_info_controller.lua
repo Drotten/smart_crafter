@@ -6,6 +6,7 @@ function CrafterInfoController:initialize()
 
    if not self._sv.reserved_ingredients then
       self._sv.reserved_ingredients = {}
+      self._sv.order_lists = {}
       self._sv.player_id = nil
    end
 end
@@ -15,7 +16,6 @@ function CrafterInfoController:create(player_id)
 end
 
 function CrafterInfoController:post_activate()
-   self._log:debug('post_activate')
    local player_id = self._sv.player_id
    local pop = stonehearth.population:get_population(player_id)
    local job_index = radiant.resources.load_json( pop:get_job_index() )
@@ -26,6 +26,7 @@ function CrafterInfoController:post_activate()
       local recipe_list = job_info:get_recipe_list()
       if recipe_list then
          local order_list = job_info:get_order_list()
+         table.insert(self._sv.order_lists, order_list)
 
          for category_name, category_data in pairs(recipe_list) do
             for recipe_name, recipe_data in pairs(category_data.recipes) do
@@ -36,9 +37,11 @@ function CrafterInfoController:post_activate()
                for _, producing in pairs(formatted_recipe.produces) do
                   keys = keys .. ' ' .. producing.item
                end
-               local product_material = formatted_recipe.product_info.components["stonehearth:material"]
-               if product_material then
-                  keys = keys .. ' ' .. product_material.tags
+
+               formatted_recipe.product_info = radiant.resources.load_json(formatted_recipe.product_uri)
+               local product_material_tags = formatted_recipe.product_info.entity_data["stonehearth:catalog"].material_tags
+               if product_material_tags then
+                  keys = keys .. ' ' .. product_material_tags
                end
                self._recipe_map:add(keys, {
                   order_list = order_list,
@@ -60,8 +63,8 @@ function CrafterInfoController:_format_recipe(recipe)
    if formatted_recipe.hasWorkshop then
       local workshop_data = radiant.resources.load_json(workshop_uri)
       formatted_recipe.workshop = {
-         name = workshop_data.components.unit_info.display_name,
-         icon = workshop_data.components.unit_info.icon,
+         name = workshop_data.entity_data["stonehearth:catalog"].display_name,
+         icon = workshop_data.entity_data["stonehearth:catalog"].icon,
          uri  = workshop_uri,
       }
    end
@@ -89,8 +92,8 @@ function CrafterInfoController:_format_recipe(recipe)
          formatted_ingredient.identifier = ingredient.uri
 
          if ingredient_data.components then
-            formatted_ingredient.name = ingredient_data.components.unit_info.display_name
-            formatted_ingredient.icon = ingredient_data.components.unit_info.icon
+            formatted_ingredient.name = ingredient_data.entity_data["stonehearth:catalog"].display_name
+            formatted_ingredient.icon = ingredient_data.entity_data["stonehearth:catalog"].icon
             formatted_ingredient.uri  = ingredient.uri
 
             if ingredient_data.components['stonehearth:entity_forms'] and ingredient_data.components['stonehearth:entity_forms'].iconic_form then
@@ -117,6 +120,10 @@ end
 
 function CrafterInfoController:get_possible_recipes(tags)
    return self._recipe_map:intersecting_values(tags)
+end
+
+function CrafterInfoController:get_order_lists()
+   return self._sv.order_lists
 end
 
 function CrafterInfoController:get_reserved_ingredients(ingredient_type)
