@@ -1,3 +1,8 @@
+### Version 1.1.3a
+
+- **Bug fix** - Updated to Stonehearth Alpha 18.
+- **Bug fix** - Properly looks at other craft order lists when determining if an ingredient has to be crafted.
+
 ### Version 1.1.3
 
 - **Performance** - It's now faster when finding recipes that produces an item needed for another recipe.
