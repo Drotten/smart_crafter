@@ -3,6 +3,10 @@ local SmartCraftOrderList = class()
 
 local log = radiant.log.create_logger('craft_order_list')
 
+--TODO: Ensure when making an order that requires a craftable ingredient which is being maintained,
+--      that the order isn't making more of that ingredient than necessary.
+--      E.g. When maintaining m Spool of thread and then making n Bolt of cloth, make max(3-m, 0)*n more Spool of thread.
+
 SmartCraftOrderList._sc_old_add_order = CraftOrderList.add_order
 -- In addition to the original add_order function (from craft_order_list.lua),
 -- here it's also checking if the order has enough of the required ingredients and,
@@ -17,7 +21,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
 
    -- Process the recipe's ingredients to see if the crafter has all she needs for it.
    for _, ingredient in pairs(recipe.ingredients) do
-      local ingredient_id = ingredient.identifier
+      local ingredient_id = ingredient.uri or ingredient.material
 
       log:debug('processing ingredient "%s"', ingredient_id)
 
@@ -162,7 +166,7 @@ function SmartCraftOrderList:remove_from_reserved_ingredients(ingredients, order
    local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
    for _, ingredient in pairs(ingredients) do
       local in_order_list = self:sc_get_ingredient_amount_in_order_list(ingredient, order_id)
-      local ingredient_id = ingredient.identifier
+      local ingredient_id = ingredient.uri or ingredient.material
       local amount = math.max(ingredient.count * multiple - in_order_list.maintain, 0)
 
       crafter_info:remove_from_reserved_ingredients(ingredient_id, amount)
@@ -173,7 +177,7 @@ end
 -- Returns information such as what the recipe itself and the order list used for it.
 --
 function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
-   local item = ingredient.identifier
+   local item = ingredient.uri or ingredient.material
 
    --TODO: improve by checking on all the recipes to see which is best to make
    for _, recipe_info in pairs(crafter_info:get_possible_recipes(item)) do
