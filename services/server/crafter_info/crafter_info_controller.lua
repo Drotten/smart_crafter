@@ -20,8 +20,8 @@ function CrafterInfoController:post_activate()
    local pop = stonehearth.population:get_population(player_id)
    local job_index = radiant.resources.load_json( pop:get_job_index() )
 
-   for _, job in pairs(job_index.jobs) do
-      local job_info = stonehearth.job:get_job_info(player_id, job.description)
+   for job_key, _ in pairs(job_index.jobs) do
+      local job_info = stonehearth.job:get_job_info(player_id, job_key)
       -- If `job_info` contains a recipe list, then `job` is a crafter.
       local recipe_list = job_info:get_recipe_list()
       if recipe_list then
