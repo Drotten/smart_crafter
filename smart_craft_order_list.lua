@@ -187,28 +187,27 @@ function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, cra
    return nil
 end
 
--- Checks `inventory` to see how much of `ingredient` it contains.
+-- Checking `inventory` to see how much of `ingredient` is available.
 --
 function SmartCraftOrderList:_sc_get_ingredient_amount_in_storage(ingredient, inventory)
-   local usable_item_tracker = inventory:get_item_tracker('stonehearth:usable_item_tracker')
-   local tracking_data = usable_item_tracker:get_tracking_data()
+   local tracking_data = inventory:get_item_tracker('stonehearth:usable_item_tracker')
+                                       :get_tracking_data()
    local ingredient_count = 0
 
    if ingredient.uri then
-      local data = radiant.entities.get_component_data(ingredient.uri , 'stonehearth:entity_forms')
-      local lookup_key = ingredient.uri
-      if data and data.iconic_form then
-         lookup_key = data.iconic_form
+      local item = ingredient.uri
+      local entity_forms = radiant.entities.get_component_data(ingredient.uri, 'stonehearth:entity_forms')
+      if entity_forms and entity_forms.iconic_form then
+         item = entity_forms.iconic_form
       end
 
-      local tracking_data_for_key = tracking_data:get(lookup_key)
-      if tracking_data_for_key then
-         ingredient_count = tracking_data_for_key.count
+      if tracking_data:contains(item) then
+         ingredient_count = tracking_data:get(item).count
       end
    elseif ingredient.material then
-      for _,data in tracking_data:each() do
-         if radiant.entities.is_material(data.first_item, ingredient.material) then
-            ingredient_count = ingredient_count + data.count
+      for _, item in tracking_data:each() do
+         if radiant.entities.is_material(item.first_item, ingredient.material) then
+            ingredient_count = ingredient_count + item.count
          end
       end
    end
