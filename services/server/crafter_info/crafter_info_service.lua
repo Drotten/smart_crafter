@@ -4,6 +4,9 @@ function CrafterInfoService:initialize()
    if not self._sv.crafter_infos then
       self._sv.crafter_infos = {}
    end
+end
+
+function CrafterInfoService:activate()
    radiant.events.listen(_radiant, 'radiant:player_kingdom_changed', self, self._on_player_kingdom_changed)
 end
 

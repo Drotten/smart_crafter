@@ -1,7 +1,7 @@
 local RecipeMap = class()
 
 -- Manage the recipes by storing a reference to them through their uri and material tags,
--- and then placing them in their respective bucket (kind of as a hash-table).
+-- and then placing them in their respective bucket.
 
 function RecipeMap:initialize()
    self._map = {}
