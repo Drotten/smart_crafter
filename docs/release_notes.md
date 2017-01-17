@@ -1,3 +1,9 @@
+### Version 1.1.5
+
+- **Stability** - Updated to Stonehearth's Alpha 20 API.
+- **Bug fix** - The mod now works without having to save and reload for each game.
+
+
 ### Version 1.1.4
 
 - **Bug fix** - Now works properly for other factions that provide their own crafter jobs.
@@ -5,7 +11,7 @@
 
 ### Version 1.1.3a
 
-- **Bug fix** - Updated to Stonehearth Alpha 18.
+- **Stability** - Updated to Stonehearth Alpha 18.
 - **Bug fix** - Properly looks at other craft order lists when determining if an ingredient has to be crafted.
 
 
@@ -23,19 +29,19 @@
 
 ### Version 1.1.1
 
-- **Bug fix** - Updated mod to have it work for Stonehearth Alpha 15.
+- **Stability** - Updated mod to have it work for Stonehearth Alpha 15.
 
 
 ### Version 1.1
 
-- **Bug fix** - Update mod to work for Stonehearth Alpha 14.
+- **Stability** - Update mod to work for Stonehearth Alpha 14.
 - **Feature** - Makes sure that any one recipe can't have more than one maintain order.
 - **Feature** - Take into account what's available for the crafter, or if any resources are reserved for other purposes.
 
 
 ### Version 1.0.3.1
 
-- **Bug fix** - Hotfix to make it work for release 240.
+- **Stability** - Hotfix to make it work for release 240.
 
 
 ### Version 1.0.3
