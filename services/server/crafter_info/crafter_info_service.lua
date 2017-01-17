@@ -7,7 +7,15 @@ function CrafterInfoService:initialize()
 end
 
 function CrafterInfoService:activate()
-   radiant.events.listen(_radiant, 'radiant:player_kingdom_changed', self, self._on_player_kingdom_changed)
+   self._kingdom_changed_listener = radiant.events.listen(_radiant, 'radiant:player_kingdom_changed',
+                                                          self, self._on_player_kingdom_changed)
+end
+
+function CrafterInfoService:destroy()
+   if self._kingdom_changed_listener then
+      self._kingdom_changed_listener:destroy()
+      self._kingdom_changed_listener = nil
+   end
 end
 
 function CrafterInfoService:_on_player_kingdom_changed(args)
