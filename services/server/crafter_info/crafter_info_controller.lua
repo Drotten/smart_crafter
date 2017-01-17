@@ -51,6 +51,7 @@ function CrafterInfoController:post_activate()
          end
       end
    end
+   self.__saved_variables:mark_changed()
 end
 
 function CrafterInfoController:_format_recipe(recipe)
@@ -145,6 +146,7 @@ function CrafterInfoController:add_to_reserved_ingredients(ingredient_type, amou
    end
 
    self._sv.reserved_ingredients[ingredient_type] = self._sv.reserved_ingredients[ingredient_type] + amount
+   self.__saved_variables:mark_changed()
 end
 
 function CrafterInfoController:remove_from_reserved_ingredients(ingredient_type, amount)
@@ -160,6 +162,7 @@ function CrafterInfoController:remove_from_reserved_ingredients(ingredient_type,
    if self._sv.reserved_ingredients[ingredient_type] == 0 then
       self._sv.reserved_ingredients[ingredient_type] = nil
    end
+   self.__saved_variables:mark_changed()
 end
 
 return CrafterInfoController

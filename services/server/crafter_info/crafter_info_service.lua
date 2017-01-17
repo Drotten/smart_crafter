@@ -14,6 +14,7 @@ end
 function CrafterInfoService:add_crafter_info(player_id)
    local crafter_info = radiant.create_controller('smart_crafter:crafter_info_controller', player_id)
    self._sv.crafter_infos[player_id] = crafter_info
+   self.__saved_variables:mark_changed()
    return crafter_info
 end
 
