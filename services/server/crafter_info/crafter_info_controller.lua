@@ -30,23 +30,41 @@ function CrafterInfoController:post_activate()
 
          for category_name, category_data in pairs(recipe_list) do
             for recipe_name, recipe_data in pairs(category_data.recipes) do
-               local formatted_recipe = self:_format_recipe(recipe_data.recipe)
-               -- Get the produces uris as well as the material tags of the recipe's product,
-               -- and add those as the key as well as the order_list and the recipe as the value.
-               local keys = ''
-               for _, producing in pairs(formatted_recipe.produces) do
-                  keys = keys .. ' ' .. producing.item
-               end
+               -- Check if the recipe's workshop has a valid uri first
+               local workshop_uri = recipe_data.recipe.workshop
+               if workshop_uri and not stonehearth.catalog:get_catalog_data(workshop_uri) then
+                  self._log:error('For recipe "%s": the workshop uri "%s" does not exist as an alias in its manifest',
+                     recipe_name, workshop_uri)
+               else
+                  local formatted_recipe = self:_format_recipe(recipe_data.recipe)
+                  -- Get the produces uris as well as the material tags of the recipe's product,
+                  -- and add those as the key as well as the order_list and the recipe as the value.
+                  local valid_recipe = true
+                  local keys = ''
+                  for _, producing in pairs(formatted_recipe.produces) do
+                     -- Check if the recipe contains valid producing items
+                     if not stonehearth.catalog:get_catalog_data(producing.item) then
+                        self._log:error('For recipe "%s": the produces item "%s" does not exist as an alias in its manifest',
+                           recipe_name, producing.item)
+                        valid_recipe = false
+                        break
+                     end
+                     keys = keys .. ' ' .. producing.item
+                  end
 
-               formatted_recipe.product_info = radiant.resources.load_json(formatted_recipe.product_uri)
-               local product_material_tags = formatted_recipe.product_info.entity_data["stonehearth:catalog"].material_tags
-               if product_material_tags then
-                  keys = keys .. ' ' .. product_material_tags
+                  if valid_recipe then
+                     -- It's a valid recipe, so store it
+                     formatted_recipe.product_info = radiant.resources.load_json(formatted_recipe.product_uri)
+                     local product_material_tags = formatted_recipe.product_info.entity_data["stonehearth:catalog"].material_tags
+                     if product_material_tags then
+                        keys = keys .. ' ' .. product_material_tags
+                     end
+                     self._recipe_map:add(keys, {
+                        order_list = order_list,
+                        recipe = formatted_recipe,
+                     })
+                  end
                end
-               self._recipe_map:add(keys, {
-                  order_list = order_list,
-                  recipe = formatted_recipe,
-               })
             end
          end
       end
