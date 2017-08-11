@@ -3,6 +3,7 @@ local CrafterInfoController = class()
 function CrafterInfoController:initialize()
    self._log = radiant.log.create_logger('crafter_info')
    self._recipe_map = radiant.create_controller('smart_crafter:recipe_map')
+   self._material_map = radiant.create_controller('smart_crafter:material_map')
 
    if not self._sv.reserved_ingredients then
       self._sv.reserved_ingredients = {}
@@ -20,9 +21,19 @@ function CrafterInfoController:post_activate()
    local pop = stonehearth.population:get_population(player_id)
    local job_index = radiant.resources.load_json( pop:get_job_index() )
 
+   -- Store all entities that has materials
+   local entity_uris = stonehearth.catalog:get_all_entity_uris()
+   for _, full_uri in pairs(entity_uris) do
+      local material_tags = stonehearth.catalog:get_catalog_data(full_uri).materials
+      if material_tags then
+         self._material_map:add(material_tags, full_uri)
+      end
+   end
+
+   -- Store all the crafters recipes and order lists
    for job_key, _ in pairs(job_index.jobs) do
       local job_info = stonehearth.job:get_job_info(player_id, job_key)
-      -- If `job_info` contains a recipe list, then `job` is a crafter.
+      -- If `job_info` contains a recipe list, then `job` is a crafter
       local recipe_list = job_info:get_recipe_list()
       if recipe_list then
          local order_list = job_info:get_order_list()
@@ -38,7 +49,7 @@ function CrafterInfoController:post_activate()
                else
                   local formatted_recipe = self:_format_recipe(recipe_data.recipe)
                   -- Get the produces uris as well as the material tags of the recipe's product,
-                  -- and add those as the key as well as the order_list and the recipe as the value.
+                  -- and add those as the key as well as the order_list and the recipe as the value
                   local valid_recipe = true
                   local keys = ''
                   for _, producing in pairs(formatted_recipe.produces) do
@@ -73,10 +84,10 @@ function CrafterInfoController:post_activate()
 end
 
 function CrafterInfoController:_format_recipe(recipe)
-   -- Format recipe to match show_team_workshop.js:_buildRecipeArray().
+   -- Format recipe to match show_team_workshop.js:_buildRecipeArray()
    local formatted_recipe = radiant.shallow_copy(recipe)
 
-   -- Add information pertaining the workshop.
+   -- Add information pertaining the workshop
    local workshop_uri = recipe.workshop
    formatted_recipe.hasWorkshop = workshop_uri ~= nil
    if formatted_recipe.hasWorkshop then
@@ -88,7 +99,7 @@ function CrafterInfoController:_format_recipe(recipe)
       }
    end
 
-   -- Add extra information to each ingredient in the recipe.
+   -- Add extra information to each ingredient in the recipe
    local formatted_ingredients = {}
    for _, ingredient in pairs(recipe.ingredients) do
       local formatted_ingredient = {}
@@ -139,6 +150,10 @@ end
 
 function CrafterInfoController:get_possible_recipes(tags)
    return self._recipe_map:intersecting_values(tags)
+end
+
+function CrafterInfoController:get_uris(material_tags)
+   return self._material_map:intersecting_values(material_tags)
 end
 
 function CrafterInfoController:get_order_lists()
