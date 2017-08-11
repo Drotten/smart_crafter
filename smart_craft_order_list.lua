@@ -19,7 +19,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
    local inv = stonehearth.inventory:get_inventory(player_id)
    local crafter_info = smart_crafter.crafter_info:get_crafter_info(player_id)
 
-   -- Process the recipe's ingredients to see if the crafter has all she needs for it.
+   -- Process the recipe's ingredients to see if the crafter has all she needs for it
    for _, ingredient in pairs(recipe.ingredients) do
       local ingredient_id = ingredient.uri or ingredient.material
 
@@ -38,7 +38,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
       if condition.type == 'make' then
          local needed = condition.amount * ingredient.count
          local in_storage = self:_sc_get_ingredient_amount_in_storage(ingredient, inv)
-         -- Go through and combine the orders in all the order lists.
+         -- Go through and combine the orders in all the order lists
          local in_order_list = {}
          for _, order_list in ipairs(crafter_info:get_order_lists()) do
             local order_list_amount = order_list:sc_get_ingredient_amount_in_order_list(ingredient)
@@ -90,7 +90,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
    if condition.type == 'maintain' then
       -- See if the order_list already contains a maintain order for the recipe:
       --    if it does, remake the order if its amount is lower than `missing`, otherwise ignore it;
-      --    if it doesn't, simply add it as usual.
+      --    if it doesn't, simply add it as usual
       local order = self:_sc_find_craft_order(recipe.recipe_name, 'maintain')
       if order then
          log:debug('checking if maintain order "%s" is to be replaced', order:get_recipe().recipe_name)
@@ -101,12 +101,12 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
 
          if not is_recursive_call or order:get_condition().at_least < tonumber(condition.at_least) then
             -- The order is to be replaced, so remove the current one so when the new one is added;
-            -- there are no duplicates of the same recipe.
+            -- there are no duplicates of the same recipe
 
             log:debug('replacing the order with %d as its new amount', condition.at_least)
 
             -- Note: It would be preferable to change the order's `at_least` value directly instead, but
-            --       I haven't found a way to accomplish that *and* have the ui update itself instantly.
+            --       I haven't found a way to accomplish that *and* have the ui update itself instantly
 
             old_order_index = self:find_index_of(order:get_id())
             self:remove_order(order)
@@ -120,7 +120,7 @@ function SmartCraftOrderList:add_order(player_id, recipe, condition, is_recursiv
    local result = self:_sc_old_add_order(player_id, recipe, condition)
 
    if old_order_index then
-      -- Change the order of the recipe to what its predecessor had.
+      -- Change the order of the recipe to what its predecessor had
 
       -- Note: We could call the function `change_order_position` for this one,
       --       but it uses an order's id to find its index in the table. And since
@@ -178,13 +178,57 @@ end
 --
 function SmartCraftOrderList:_sc_get_recipe_info_from_ingredient(ingredient, crafter_info)
    local item = ingredient.uri or ingredient.material
+   local chosen_recipe = nil
+   local chosen_recipe_cost = 0
 
-   --TODO: improve by checking on all the recipes to see which is best to make
+   -- Take the cheapest recipe
    for _, recipe_info in pairs(crafter_info:get_possible_recipes(item)) do
-      return recipe_info
+      local recipe_cost = self:_sc_get_recipe_cost(recipe_info, crafter_info)
+      if not chosen_recipe or recipe_cost < chosen_recipe_cost then
+         chosen_recipe = recipe_info
+         chosen_recipe_cost = recipe_cost
+      end
    end
 
-   return nil
+   return chosen_recipe
+end
+
+-- Get the total cost of crafting a recipe:
+-- the amount of ingredients used and their respective value,
+-- how many ingredients are missing and how much it would cost to craft them.
+--
+function SmartCraftOrderList:_sc_get_recipe_cost(recipe_info, crafter_info)
+   local total_cost = 0
+
+   local ingredients = recipe_info.recipe.ingredients
+   -- TODO: check if the ingredient is available, if not then check its recipe's cost (or multiply its cost by 2)
+   for _, ingredient in pairs(ingredients) do
+      local cost = 0
+      if ingredient.kind == 'material' then
+         local uris = crafter_info:get_uris(ingredient.material)
+         _, cost = self:_sc_get_least_valued_entity(uris)
+      else -- ingredient.kind == 'uri'
+         _, cost = self:_sc_get_least_valued_entity({ingredient.uri})
+      end
+      total_cost = total_cost + cost * ingredient.count
+   end
+
+   return total_cost
+end
+
+-- Get the lowest valued entity, and its cost, from a list of uris.
+--
+function SmartCraftOrderList:_sc_get_least_valued_entity(uris)
+   local least_valued_uri = nil
+   local lowest_value = 0
+   for _, uri in ipairs(uris) do
+      local value = stonehearth.catalog:get_catalog_data(uri).sell_cost
+      if value < lowest_value or not least_valued_uri then
+         least_valued_uri = uri
+         lowest_value = value
+      end
+   end
+   return least_valued_uri, lowest_value
 end
 
 -- Checking `inventory` to see how much of `ingredient` is available.
@@ -237,7 +281,7 @@ function SmartCraftOrderList:sc_get_ingredient_amount_in_order_list(ingredient, 
          if (ingredient.material
          and type(recipe.product_uri) == 'table'
          and recipe.product_uri.entity_data["stonehearth:catalog"].material_tags
-         and self:_sc_tags_match(ingredient.material, recipe.product_uri.entity_data["stonehearth:catalog"].material_tags))
+         and self:_sc_matching_tags(ingredient.material, recipe.product_uri.entity_data["stonehearth:catalog"].material_tags))
          or (ingredient.uri
          and recipe.product_uri == ingredient.uri) then
 
@@ -258,15 +302,15 @@ end
 -- Checks to see if `tags_string1` is a sub-set of `tags_string2`.
 -- Returns true if it is, else false.
 --
-function SmartCraftOrderList:_sc_tags_match(tags_string1, tags_string2)
+function SmartCraftOrderList:_sc_matching_tags(tags_string1, tags_string2)
    -- Hack!
-   -- Add a space at the end to make the frontier pattern search succeed at all times.
+   -- Add a space at the end to make the frontier pattern search succeed at all times
    tags_string2 = tags_string2 .. ' '
-   -- gmatch will return either 1 tag or the empty string.
+   -- gmatch will return either 1 tag or the empty string
    -- make sure we skip over the empty strings!
    for tag in tags_string1:gmatch("([^ ]*)") do
       -- use frontier pattern to find the tag,
-      -- whilst making sure that it's a word-border search.
+      -- whilst making sure that it's a word-border search
       if tag ~= '' and not tags_string2:find("%f[%a%d_]".. tag .."%f[ ]") then
          return false
       end
