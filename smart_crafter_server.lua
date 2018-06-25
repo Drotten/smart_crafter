@@ -32,6 +32,7 @@ local function create_service(name)
    service.__saved_variables = saved_variables
    service._sv = saved_variables:get_data()
    saved_variables:set_controller(service)
+   saved_variables:set_controller_name('smart_crafter:' .. name)
    service:initialize()
    smart_crafter[name] = service
 end
