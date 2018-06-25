@@ -1,3 +1,8 @@
+### Version 1.1.7
+
+- **Stability** - Added more error handling for recipe categories that contain no recipes.
+
+
 ### Version 1.1.6
 
 - **Stability** - Added error handling so that invalid recipes won't break the mod outright.
