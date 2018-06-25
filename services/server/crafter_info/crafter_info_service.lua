@@ -1,14 +1,15 @@
 local CrafterInfoService = class()
+local log = radiant.log.create_logger('crafter_info_service')
 
 function CrafterInfoService:initialize()
    if not self._sv.crafter_infos then
       self._sv.crafter_infos = {}
    end
-end
 
-function CrafterInfoService:activate()
-   self._kingdom_changed_listener = radiant.events.listen(_radiant, 'radiant:player_kingdom_changed',
-                                                          self, self._on_player_kingdom_changed)
+   --NOTE: adding a new crafter_info directly after a player joins is the wrong thing to do,
+   --      as the information of crafters seem to have not been loaded yet...
+   -- self._kingdom_changed_listener = radiant.events.listen(_radiant, 'radiant:player_kingdom_changed',
+   --                                                        self, self._on_player_kingdom_changed)
 end
 
 function CrafterInfoService:destroy()
@@ -18,9 +19,9 @@ function CrafterInfoService:destroy()
    end
 end
 
-function CrafterInfoService:_on_player_kingdom_changed(args)
-   return self:add_crafter_info(args.player_id)
-end
+-- function CrafterInfoService:_on_player_kingdom_changed(args)
+--    return self:add_crafter_info(args.player_id)
+-- end
 
 function CrafterInfoService:add_crafter_info(player_id)
    local crafter_info = radiant.create_controller('smart_crafter:crafter_info_controller', player_id)
