@@ -1,7 +1,9 @@
 {
    "info": {
-      "name": "smart_crafter",
-      "version": 3
+      "name": "Smart Crafter",
+      "namespace": "smart_crafter",
+      "version": 3,
+      "default_locale": "en"
    },
 
    "server_init_script": "file(smart_crafter_server)",
