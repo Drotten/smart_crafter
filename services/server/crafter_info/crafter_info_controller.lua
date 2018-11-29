@@ -54,7 +54,7 @@ function CrafterInfoController:post_activate()
                      -- Get the produces uris as well as the material tags of the recipe's product,
                      -- and add those as the key as well as the order_list and the recipe as the value
                      local valid_recipe = true
-                     local keys = ''
+                     local keys = {}
                      for _, producing in pairs(formatted_recipe.produces) do
                         -- Check if the recipe contains valid producing items
                         if not stonehearth.catalog:get_catalog_data(producing.item) then
@@ -63,15 +63,19 @@ function CrafterInfoController:post_activate()
                            valid_recipe = false
                            break
                         end
-                        keys = keys .. ' ' .. producing.item
+                        table.insert(keys, producing.item)
                      end
 
                      if valid_recipe then
                         -- It's a valid recipe, so store it
                         formatted_recipe.product_info = radiant.resources.load_json(formatted_recipe.product_uri)
-                        local product_material_tags = formatted_recipe.product_info.entity_data["stonehearth:catalog"].material_tags
-                        if product_material_tags then
-                           keys = keys .. ' ' .. product_material_tags
+                        local product_catalog = formatted_recipe.product_info.entity_data["stonehearth:catalog"]
+                        if product_catalog and product_catalog.material_tags then
+                           local mat_tags = product_catalog.material_tags
+                           if type(mat_tags) == 'string' then
+                              mat_tags = radiant.util.split_string(mat_tags, ' ')
+                           end
+                           smart_crafter.util.itable_append(keys, mat_tags)
                         end
                         self._recipe_map:add(keys, {
                            order_list = order_list,

@@ -13,7 +13,10 @@ end
 -- If one such value already exists, then do nothing.
 --
 function MaterialMap:add(keys, value)
-   local keys_table = radiant.util.split_string(keys, ' ')
+   local keys_table = keys
+   if type(keys) == 'string' then
+      keys_table = radiant.util.split_string(keys, ' ')
+   end
 
    for _, key in ipairs(keys_table) do
       local bucket = self._map[key]
@@ -31,7 +34,10 @@ end
 -- Returns a table containing all the values that share all within `keys`
 --
 function MaterialMap:intersecting_values(keys)
-   local keys_table = radiant.util.split_string(keys, ' ')
+   local keys_table = keys
+   if type(keys) == 'string' then
+      keys_table = radiant.util.split_string(keys, ' ')
+   end
 
    local last_key = table.remove(keys_table)
    local values = radiant.shallow_copy(self._map[last_key] or {})
