@@ -1,3 +1,8 @@
+### Version 1.1.8
+
+- **Bug fix** - Now accomodates for material tags in array format.
+
+
 ### Version 1.1.7
 
 - **Stability** - Added more error handling for recipe categories that contain no recipes.
